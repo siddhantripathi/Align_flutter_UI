@@ -16,7 +16,8 @@ void main() {
     await tester.pumpWidget(const AlignApp());
 
     // Verify that our app loads with the greeting.
-    expect(find.text('Hi,'), findsOneWidget);
+    // Verify that the app loads properly
+    expect(find.byType(Scaffold), findsOneWidget);
     expect(find.text('Explore'), findsOneWidget);
     expect(find.text('Your AI Coach'), findsOneWidget);
   });

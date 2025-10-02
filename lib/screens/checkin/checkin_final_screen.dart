@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'checkin_screen.dart';
+import '../../shared/widgets/checkin_completion_overlay.dart';
 
 class CheckinFinalScreen extends StatefulWidget {
   final MoodOption selectedMood;
@@ -385,18 +386,23 @@ class _CheckinFinalScreenState extends State<CheckinFinalScreen> with TickerProv
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () {
+        onPressed: () async {
           // Handle save
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Check-in saved successfully!')),
           );
           
-          // Navigate back to home
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/',
-            (route) => false,
-          );
+          // Show completion overlay first
+          await CheckinCompletionOverlay.show(context);
+          
+          // Then navigate back to home
+          if (mounted) {
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              '/',
+              (route) => false,
+            );
+          }
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFFFFB6C1), // Light pink

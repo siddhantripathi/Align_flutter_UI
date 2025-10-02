@@ -1,10 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 
+// Core imports
+import 'core/constants/app_constants.dart';
+import 'core/theme/app_theme.dart';
+import 'core/theme/app_colors.dart';
+import 'core/theme/app_text_styles.dart';
+import 'core/animations/earth_animation.dart';
+
+// Screen imports
+import 'screens/auth/login_screen.dart';
 import 'screens/checkin/checkin_screen.dart';
 import 'screens/wellness_screen.dart';
+import 'screens/wellness_modules_screen.dart';
 import 'screens/ai_coach_screen.dart';
 
-void main() {
+// Widget imports
+import 'shared/widgets/custom_card.dart';
+import 'shared/widgets/checkin_completion_overlay.dart';
+
+// Provider imports
+import 'data/providers/auth_provider.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const AlignApp());
 }
 
@@ -13,18 +34,73 @@ class AlignApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Align',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF6B73FF),
-          brightness: Brightness.light,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+      ],
+      child: MaterialApp(
+        title: 'Align',
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        home: Consumer<AuthProvider>(
+          builder: (context, authProvider, _) {
+            switch (authProvider.status) {
+              case AuthStatus.uninitialized:
+                return const SplashScreen();
+              case AuthStatus.unauthenticated:
+                return const LoginScreen();
+              case AuthStatus.authenticated:
+                return const HomeScreen();
+              case AuthStatus.loading:
+                return const SplashScreen();
+            }
+          },
         ),
-        useMaterial3: true,
-        fontFamily: 'SF Pro Display',
+        debugShowCheckedModeBanner: false,
       ),
-      home: const HomeScreen(),
-      debugShowCheckedModeBanner: false,
+    );
+  }
+}
+
+class SplashScreen extends StatelessWidget {
+  const SplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(25),
+              ),
+              child: const Icon(
+                Icons.eco,
+                size: 50,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 24),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Align',
+              style: AppTextStyles.h2.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -36,45 +112,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _earthController;
-  late Animation<double> _earthRotation;
-  late Animation<double> _earthScale;
+class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _earthController = AnimationController(
-      duration: const Duration(seconds: 4),
-      vsync: this,
-    );
-    
-    _earthRotation = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(CurvedAnimation(
-      parent: _earthController,
-      curve: Curves.linear,
-    ));
-    
-    _earthScale = Tween<double>(
-      begin: 1.0,
-      end: 1.1,
-    ).animate(CurvedAnimation(
-      parent: _earthController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _earthController.repeat();
-  }
-
-  @override
-  void dispose() {
-    _earthController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,104 +149,111 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   Widget _buildHeader() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        const Text(
-          'Hi, Emma!',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
-        ),
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Stack(
-            children: [
-              const Icon(
-                Icons.notifications_outlined,
-                size: 24,
-                color: Colors.black,
-              ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 8,
-                  height: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, child) {
+        final userName = authProvider.user?.firstName ?? 'User';
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Hi, $userName!',
+              style: AppTextStyles.h1,
+            ),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                  ),
+                  child: Stack(
+                    children: [
+                      const Icon(
+                        Icons.notifications_outlined,
+                        size: 24,
+                        color: Colors.black,
+                      ),
+                      Positioned(
+                        right: 0,
+                        top: 0,
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
-      ],
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () async {
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    await authProvider.signOut();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[100],
+                      borderRadius: BorderRadius.circular(AppConstants.borderRadius),
+                    ),
+                    child: const Icon(
+                      Icons.logout,
+                      size: 24,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildCheckInCard() {
-    return GestureDetector(
+    return CheckinCard(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(builder: (context) => const CheckInScreen()),
         );
       },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFE4E6),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: BorderRadius.circular(15),
             ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE3F2FD),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: const Icon(
-                Icons.face,
-                color: Color(0xFF4CAF50),
-                size: 30,
+            child: const Icon(
+              Icons.face,
+              color: AppColors.secondary,
+              size: 30,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              'Check-in: How are you feeling?',
+              style: AppTextStyles.bodyLarge.copyWith(
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(width: 16),
-            const Expanded(
-              child: Text(
-                'Check-in: How are you feeling?',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black,
-                ),
-              ),
-            ),
-            const Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: Colors.black,
-            ),
-          ],
-        ),
+          ),
+          const Icon(
+            Icons.arrow_forward_ios,
+            size: 16,
+            color: AppColors.textPrimary,
+          ),
+        ],
       ),
     );
   }
@@ -216,163 +262,62 @@ class _HomeScreenState extends State<HomeScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Explore',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
+          style: AppTextStyles.h2,
         ),
         const SizedBox(height: 16),
-        _buildWellnessCard(
+        WellnessCard(
           title: 'Learn Wellness',
           description: 'Designed to help you understand and improve your wellness',
           progress: 0.3,
           completed: 3,
           total: 10,
-          image: Icons.eco,
+          icon: Icons.eco,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const WellnessModulesScreen(
+                  type: 'learn',
+                  title: 'Learn Wellness',
+                ),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 16),
-        _buildWellnessCard(
+        WellnessCard(
           title: 'Practice Wellness',
           description: 'Build practical skills and habits to enhance your daily wellness routine',
           progress: 0.5,
           completed: 5,
           total: 10,
-          image: Icons.water_drop,
+          icon: Icons.water_drop,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const WellnessModulesScreen(
+                  type: 'practice',
+                  title: 'Practice Wellness',
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
   }
 
-  Widget _buildWellnessCard({
-    required String title,
-    required String description,
-    required double progress,
-    required int completed,
-    required int total,
-    required IconData image,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => WellnessScreen(
-              title: title,
-              description: description,
-              progress: progress,
-              completed: completed,
-              total: total,
-            ),
-          ),
-        );
-      },
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE3F2FD),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Icon(
-                image,
-                color: const Color(0xFF2196F3),
-                size: 30,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-        child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                      height: 1.3,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  LinearProgressIndicator(
-                    value: progress,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFFFE4E6)),
-                    minHeight: 6,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '$completed/$total modules',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-            Text(
-                        '${(progress * 100).round()}% completed',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.arrow_forward_ios,
-              size: 16,
-              color: Colors.black,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildAICoachSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Your AI Coach',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.black,
-          ),
+          style: AppTextStyles.h2,
         ),
         const SizedBox(height: 16),
         Container(
@@ -392,29 +337,17 @@ class _HomeScreenState extends State<HomeScreen>
           child: Row(
             children: [
               // Animated Earth Icon
-              AnimatedBuilder(
-                animation: _earthController,
-                builder: (context, child) {
-                  return Transform.scale(
-                    scale: _earthScale.value,
-                    child: Transform.rotate(
-                      angle: _earthRotation.value * 2 * 3.14159,
-                      child: Container(
-                        width: 60,
-                        height: 60,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFE3F2FD),
-                          borderRadius: BorderRadius.circular(15),
-                        ),
-                        child: const Icon(
-                          Icons.public,
-                          color: Color(0xFF2196F3),
-                          size: 30,
-                        ),
-                      ),
-                    ),
-                  );
-                },
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                child: const EarthAnimationWidget(
+                  size: 30,
+                  color: AppColors.accentBlue,
+                ),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -520,7 +453,7 @@ class _HomeScreenState extends State<HomeScreen>
         children: [
           _buildNavItem(Icons.home, 'Home', 0, true),
           _buildNavItem(Icons.search, 'Search', 1, false),
-          _buildNavItem(Icons.public, 'Community', 2, false),
+          _buildNavItem(Icons.favorite, 'Wellness', 2, false),
           _buildNavItem(Icons.military_tech, 'Badges', 3, false),
           _buildNavItem(Icons.person, 'Profile', 4, false),
         ],
